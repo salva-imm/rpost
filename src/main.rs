@@ -1,14 +1,34 @@
+#[macro_use]
+extern crate lazy_static;
+#[macro_use]
+extern crate rbatis;
+
+use rbatis::crud::CRUD;
+use rbatis::rbatis::Rbatis;
+
+
+#[crud_table]
+#[derive(Clone, Debug)]
+pub struct Users {
+    pub id: Option<String>,
+    pub name: Option<String>,
+    pub password: Option<String>
+}
+
+impl Default for Users {
+    fn default() -> Self {
+        Users {
+            id: None,
+            name: None,
+            password: None
+        }
+    }
+}
+
 use actix_web::{
     get, post, web, App, HttpResponse,
     HttpServer, Responder, Result, middleware};
 use serde::Deserialize;
-
-#[allow(unused_imports)]
-#[macro_use]
-extern crate rbatis;
-
-#[allow(unused_imports)]
-use rbatis::crud::CRUD;
 
 #[derive(Deserialize)]
 struct Info {
@@ -16,12 +36,25 @@ struct Info {
     friend: String,
 }
 
+pub const POSTGRES_URL: &'static str = "postgres://postgres:postgres@localhost:5434/postgres";
+
+// init global rbatis pool
+lazy_static! {
+    static ref RB: Rbatis = Rbatis::new();
+}
 /// extract path info using serde
-#[get("/users/{user_id}/{friend}/")] // <- define path parameters
+#[get("/users/{user_id}/{friend}/")]
 async fn index(info: web::Path<Info>) -> Result<String> {
+    let users = Users {
+        id: Some(info.user_id.to_string()),
+        name: Some(info.friend.to_string()),
+        password: None
+    };
+    /// saving
+    let result = RB.save(&users).await;
     Ok(format!(
-        "Welcome {}, user_id {}!",
-        info.friend, info.user_id
+        "Welcome {}, user_id {}!, result {:#?}",
+        info.friend, info.user_id, result
     ))
 }
 
@@ -41,6 +74,14 @@ async fn manual_hello() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    // User{
+    //     id: Some("12".to_owned()),
+    //     name: None,
+    //     password: None
+    // };
+    fast_log::init_log("requests.log", 1000, log::Level::Info, None, true);
+    //link database
+    RB.link(POSTGRES_URL).await.unwrap();
     HttpServer::new(|| {
         App::new()
             .wrap(middleware::NormalizePath::default())

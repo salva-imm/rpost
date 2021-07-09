@@ -1,0 +1,17 @@
+version: '3'
+
+services:
+  rpost-postgres:
+    image: postgres:9.6.1
+    volumes:
+      - rpost_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    ports:
+      - "5434:5432"
+
+volumes:
+  rpost_data:
+    external: true
