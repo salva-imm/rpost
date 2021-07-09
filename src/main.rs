@@ -3,6 +3,16 @@ extern crate lazy_static;
 #[macro_use]
 extern crate rbatis;
 
+use actix_web::{
+    get, post, web, App, HttpResponse,
+    HttpServer, Responder, middleware};
+use serde::Deserialize;
+use actix_web_validator::Json;
+use validator::Validate;
+
+#[allow(unused_imports)]
+use argon2::{self, Config};
+
 use rbatis::crud::CRUD;
 use rbatis::rbatis::Rbatis;
 
@@ -25,12 +35,9 @@ impl Default for Users {
     }
 }
 
-use actix_web::{
-    get, post, web, App, HttpResponse,
-    HttpServer, Responder, Result, middleware};
-use serde::Deserialize;
 
-#[derive(Deserialize)]
+
+#[derive(Deserialize, Validate)]
 struct Info {
     user_id: u32,
     friend: String,
@@ -42,17 +49,17 @@ pub const POSTGRES_URL: &'static str = "postgres://postgres:postgres@localhost:5
 lazy_static! {
     static ref RB: Rbatis = Rbatis::new();
 }
-/// extract path info using serde
-#[get("/users/{user_id}/{friend}/")]
-async fn index(info: web::Path<Info>) -> Result<String> {
+
+#[post("/users/")]
+async fn index(info: Json<Info>) -> impl Responder {
     let users = Users {
         id: Some(info.user_id.to_string()),
         name: Some(info.friend.to_string()),
         password: None
     };
-    /// saving
-    let result = RB.save(&users).await;
-    Ok(format!(
+    println!("{:#?}", users);
+    let result =  RB.save(&users).await;
+    HttpResponse::Ok().body(format!(
         "Welcome {}, user_id {}!, result {:#?}",
         info.friend, info.user_id, result
     ))
@@ -74,12 +81,7 @@ async fn manual_hello() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    // User{
-    //     id: Some("12".to_owned()),
-    //     name: None,
-    //     password: None
-    // };
-    fast_log::init_log("requests.log", 1000, log::Level::Info, None, true);
+    let _request_logs = fast_log::init_log("requests.log", 1000, log::Level::Info, None, true);
     //link database
     RB.link(POSTGRES_URL).await.unwrap();
     HttpServer::new(|| {
