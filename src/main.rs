@@ -25,6 +25,13 @@ pub struct Users {
     pub password: Option<String>
 }
 
+#[derive(Deserialize, Validate)]
+pub struct UserInput {
+    pub id: Option<String>,
+    pub name: Option<String>,
+    pub password: Option<String>
+}
+
 impl Default for Users {
     fn default() -> Self {
         Users {
@@ -36,13 +43,6 @@ impl Default for Users {
 }
 
 
-
-#[derive(Deserialize, Validate)]
-struct Info {
-    user_id: u32,
-    friend: String,
-}
-
 pub const POSTGRES_URL: &'static str = "postgres://postgres:postgres@localhost:5434/postgres";
 
 // init global rbatis pool
@@ -51,17 +51,17 @@ lazy_static! {
 }
 
 #[post("/users/")]
-async fn index(info: Json<Info>) -> impl Responder {
-    let users = Users {
-        id: Some(info.user_id.to_string()),
-        name: Some(info.friend.to_string()),
-        password: None
+async fn index(user: Json<UserInput>) -> impl Responder {
+    let user_model = Users {
+        id: user.id.to_owned(),
+        name: user.name.to_owned(),
+        password: user.password.to_owned()
     };
-    println!("{:#?}", users);
-    let result =  RB.save(&users).await;
+    println!("{:#?}", user_model);
+    let result =  RB.save(&user_model).await;
     HttpResponse::Ok().body(format!(
-        "Welcome {}, user_id {}!, result {:#?}",
-        info.friend, info.user_id, result
+        "Welcome {:#?}, user_id {:#?}!, result {:#?}",
+        user.id, user.name, result
     ))
 }
 
