@@ -10,7 +10,6 @@ use serde::Deserialize;
 use actix_web_validator::Json;
 use validator::Validate;
 
-#[allow(unused_imports)]
 use argon2::{self, Config};
 
 use rbatis::crud::CRUD;
@@ -20,34 +19,24 @@ use rbatis::rbatis::Rbatis;
 #[crud_table]
 #[derive(Clone, Debug)]
 pub struct Users {
-    pub id: Option<String>,
-    pub name: Option<String>,
-    pub password: Option<String>
+    pub id: String,
+    pub name: String,
+    pub password: String
 }
 
 #[derive(Deserialize, Validate)]
 pub struct UserInput {
-    pub id: Option<String>,
-    pub name: Option<String>,
-    pub password: Option<String>
+    pub id: String,
+    pub name: String,
+    pub password: String
 }
-
-impl Default for Users {
-    fn default() -> Self {
-        Users {
-            id: None,
-            name: None,
-            password: None
-        }
-    }
-}
-
 
 pub const POSTGRES_URL: &'static str = "postgres://postgres:postgres@localhost:5434/postgres";
 
-// init global rbatis pool
 lazy_static! {
     static ref RB: Rbatis = Rbatis::new();
+    static ref ARGON2_CONFIG: Config<'static> = Config::default();
+    static ref ARGON2_SALT: &'static [u8]= "randomsalt".as_bytes();
 }
 
 #[post("/users/")]
@@ -55,7 +44,7 @@ async fn index(user: Json<UserInput>) -> impl Responder {
     let user_model = Users {
         id: user.id.to_owned(),
         name: user.name.to_owned(),
-        password: user.password.to_owned()
+        password: argon2::hash_encoded(user.password.to_owned().as_bytes(), &ARGON2_SALT, &ARGON2_CONFIG).unwrap()
     };
     println!("{:#?}", user_model);
     let result =  RB.save(&user_model).await;
